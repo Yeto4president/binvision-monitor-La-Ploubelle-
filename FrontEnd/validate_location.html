@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="{{ g.lang }}">
+<head>
+  <meta charset="UTF-8">
+  <title>{% if g.lang == 'fr' %}Valider la localisation{% else %}Validate location{% endif %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" media="print" onload="this.media='all'">
+</head>
+<body>
+  <div class="center">
+    <h1>
+      {% if g.lang == 'fr' %}Valider la position de la poubelle{% else %}Validate bin position{% endif %}
+    </h1>
+
+    <img 
+      src="{{ url_for('static', filename='uploads/' + filename) }}" 
+      width="300" 
+      loading="lazy" 
+      alt="{% if g.lang == 'fr' %}Image de la poubelle à géolocaliser{% else %}Bin image to geolocate{% endif %}"><br>
+
+    <form method="post" onsubmit="return checkLocationSelected();">
+      <div id="map" role="application" aria-label="{% if g.lang == 'fr' %}Carte pour sélectionner la position de la poubelle{% else %}Map to select bin position{% endif %}"></div>
+      <input type="hidden" name="latitude" id="latitude">
+      <input type="hidden" name="longitude" id="longitude">
+      <button type="submit">
+        {% if g.lang == 'fr' %}Valider la position{% else %}Validate position{% endif %}
+      </button>
+    </form>
+
+    <a href="{{ url_for('upload_image') }}">
+      {% if g.lang == 'fr' %}Annuler{% else %}Cancel{% endif %}
+    </a>
+  </div>
+
+  <!-- Sélecteur de langue -->
+  <div style="text-align:right; margin: 0.5em 1em 0 0;">
+    <form method="get" action="{{ url_for('set_language_route', lang='en' if g.lang == 'fr' else 'fr') }}">
+      <button type="submit" style="background:none;border:none;color:#007bff;cursor:pointer;">
+        {% if g.lang == 'fr' %}🇬🇧 English{% else %}🇫🇷 Français{% endif %}
+      </button>
+    </form>
+  </div>
+
+  <!-- Déplacement en bas pour éviter le blocage du rendu -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script>
+    // Attendre que Leaflet soit chargé
+    window.addEventListener('load', () => {
+      const map = L.map('map').setView([48.8566, 2.3522], 12); // Paris par défaut
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      let marker;
+      map.on('click', function(e) {
+        const { lat, lng } = e.latlng;
+        document.getElementById('latitude').value = lat.toFixed(6);
+        document.getElementById('longitude').value = lng.toFixed(6);
+        if (marker) {
+          marker.setLatLng(e.latlng);
+        } else {
+          marker = L.marker(e.latlng).addTo(map);
+        }
+      });
+    });
+
+    function checkLocationSelected() {
+      const lat = document.getElementById('latitude').value;
+      const lng = document.getElementById('longitude').value;
+      if (!lat || !lng) {
+        alert('{% if g.lang == "fr" %}Veuillez sélectionner la position de la poubelle sur la carte avant de valider.{% else %}Please select the bin position on the map before validating.{% endif %}');
+        return false;
+      }
+      return true;
+    }
+  </script>
+</body>
+</html>

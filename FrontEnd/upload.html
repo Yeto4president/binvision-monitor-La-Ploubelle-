@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="{{ g.lang }}">
+<head>
+  <meta charset="UTF-8" />
+  <title>{% if g.lang == 'fr' %}Upload une image{% else %}Upload an image{% endif %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" media="all">
+</head>
+<body>
+
+<header>
+  <h1>{% if g.lang == 'fr' %}Upload une image{% else %}Upload an image{% endif %}</h1>
+  <a href="{{ url_for('images') }}">
+    {% if g.lang == 'fr' %}Galerie{% else %}Gallery{% endif %}
+  </a>
+  <nav>
+    <a href="{{ url_for('dashboard') }}">
+      {% if g.lang == 'fr' %}Tableau de bord{% else %}Dashboard{% endif %}
+    </a>
+  </nav>
+</header>
+
+<div style="text-align:right; margin: 0.5em 1em 0 0;">
+  <form method="get" action="{{ url_for('set_language_route', lang='en' if g.lang == 'fr' else 'fr') }}">
+    <button type="submit" style="background:none;border:none;color:#007bff;cursor:pointer;">
+      {% if g.lang == 'fr' %}🇬🇧 English{% else %}🇫🇷 Français{% endif %}
+    </button>
+  </form>
+</div>
+
+<main>
+  {% if error_message %}
+  <div class="error-message"><strong>⚠️ {{ error_message }}</strong></div>
+  {% endif %}
+
+  <form class="main-form" method="post" enctype="multipart/form-data">
+    <div class="form-group">
+      <h3>{% if g.lang == 'fr' %}Sélectionner des images :{% else %}Select images:{% endif %}</h3>
+      <label>
+        <input type="radio" name="upload_type" value="single" checked onchange="toggleUploadMode()">
+        {% if g.lang == 'fr' %}Une seule image{% else %}Single image{% endif %}
+      </label>
+      <label>
+        <input type="radio" name="upload_type" value="multiple" onchange="toggleUploadMode()">
+        {% if g.lang == 'fr' %}Plusieurs images{% else %}Multiple images{% endif %}
+      </label>
+      <label>
+        <input type="radio" name="upload_type" value="folder" onchange="toggleUploadMode()">
+        {% if g.lang == 'fr' %}Dossier entier{% else %}Whole folder{% endif %}
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label>
+        <input type="checkbox" name="reanalyze" value="true">
+        {% if g.lang == 'fr' %}Ré-analyser les images déjà uploadées{% else %}Re-analyze already uploaded images{% endif %}
+      </label>
+      <small>
+        {% if g.lang == 'fr' %}
+          Les doublons seront ré-analysés au lieu d’être ignorés.
+        {% else %}
+          Duplicates will be re-analyzed instead of ignored.
+        {% endif %}
+      </small>
+    </div>
+
+    <div id="single-upload" class="form-group">
+      <input type="file" name="image" accept=".png,.jpg,.jpeg,.webp" required>
+    </div>
+
+    <div id="multiple-upload" class="form-group" style="display: none;">
+      <input type="file" name="images" multiple accept=".png,.jpg,.jpeg,.webp">
+      <small>
+        {% if g.lang == 'fr' %}
+          Maintenez Ctrl (ou Cmd) pour en sélectionner plusieurs.
+        {% else %}
+          Hold Ctrl (or Cmd) to select multiple files.
+        {% endif %}
+      </small>
+    </div>
+
+    <div id="folder-upload" class="form-group" style="display: none;">
+      <input type="file" name="folder" webkitdirectory directory accept=".png,.jpg,.jpeg,.webp">
+      <small>
+        {% if g.lang == 'fr' %}
+          Sélectionnez un dossier contenant des images.
+        {% else %}
+          Select a folder containing images.
+        {% endif %}
+      </small>
+    </div>
+
+    <button type="submit" id="upload-btn">
+      {% if g.lang == 'fr' %}Uploader{% else %}Upload{% endif %}
+    </button>
+
+    <div id="progress-container">
+      <div style="background-color:#f0f0f0; border-radius:10px; padding:3px;">
+        <div id="progress-bar"></div>
+      </div>
+      <p id="progress-text">
+        {% if g.lang == 'fr' %}Traitement en cours...{% else %}Processing...{% endif %}
+      </p>
+    </div>
+  </form>
+
+  <script>
+    // Textes multilingues passés depuis Jinja
+    const TEXTS = {
+      uploadBtn: {
+        single: "{{ 'Uploader' if g.lang == 'fr' else 'Upload' }}",
+        multiple: "{{ 'Uploader les images' if g.lang == 'fr' else 'Upload images' }}",
+        folder: "{{ 'Analyser le dossier' if g.lang == 'fr' else 'Analyze folder' }}"
+      },
+      processing: "{{ 'Traitement...' if g.lang == 'fr' else 'Processing...' }}",
+      retry: "{{ 'Réessayer' if g.lang == 'fr' else 'Retry' }}",
+      error: "{{ 'Erreur' if g.lang == 'fr' else 'Error' }}",
+      processed: "{{ 'image(s) traitée(s)' if g.lang == 'fr' else 'image(s) processed' }}",
+      reanalyzed: "{{ 'ré-analysée(s)' if g.lang == 'fr' else 're-analyzed' }}",
+      duplicate: "{{ 'doublon(s)' if g.lang == 'fr' else 'duplicate(s)' }}",
+      errorCount: "{{ 'erreur(s)' if g.lang == 'fr' else 'error(s)' }}",
+      detected: "{{ 'image(s) détectée(s)' if g.lang == 'fr' else 'image(s) detected' }}",
+      selected: "{{ 'fichier(s) sélectionné(s)' if g.lang == 'fr' else 'file(s) selected' }}"
+    };
+
+    function toggleUploadMode() {
+      const type = document.querySelector('input[name="upload_type"]:checked').value;
+      const types = ['single', 'multiple', 'folder'];
+      types.forEach(t => {
+        document.getElementById(t + '-upload').style.display = (t === type) ? 'block' : 'none';
+        const input = document.querySelector(`#${t}-upload input`);
+        if (input) {
+          input.toggleAttribute('required', t === type);
+        }
+      });
+      document.getElementById('upload-btn').textContent = TEXTS.uploadBtn[type] || TEXTS.uploadBtn.single;
+    }
+
+    document.querySelector('.main-form').addEventListener('submit', function(e) {
+      const type = document.querySelector('input[name="upload_type"]:checked').value;
+      const progress = document.getElementById('progress-container');
+      const btn = document.getElementById('upload-btn');
+
+      if (type !== 'single') {
+        e.preventDefault();
+        const formData = new FormData(this);
+        btn.disabled = true;
+        btn.textContent = TEXTS.processing;
+        progress.style.display = 'block';
+
+        fetch('/upload_ajax', { method: 'POST', body: formData })
+          .then(r => r.json())
+          .then(data => {
+            let message = `${data.processed_count || 0} ${TEXTS.processed}`;
+            if (data.reanalyzed_count) message += ` • ${data.reanalyzed_count} ${TEXTS.reanalyzed}`;
+            if (data.duplicate_count) message += ` • ${data.duplicate_count} ${TEXTS.duplicate}`;
+            if (data.error_count) message += ` • ${data.error_count} ${TEXTS.errorCount}`;
+            window.location.href = `/images?message=${encodeURIComponent(message)}`;
+          })
+          .catch(err => {
+            alert(TEXTS.error + ' : ' + err.message);
+            btn.disabled = false;
+            btn.textContent = TEXTS.retry;
+            progress.style.display = 'none';
+          });
+      }
+    });
+
+    document.addEventListener('change', function(e) {
+      if (e.target.type === 'file') {
+        const files = e.target.files;
+        const uploadType = document.querySelector('input[name="upload_type"]:checked').value;
+        if (files.length > 1 || uploadType === 'folder') {
+          let status = e.target.parentNode.querySelector('.file-status');
+          if (!status) {
+            status = document.createElement('div');
+            status.className = 'file-status';
+            e.target.parentNode.appendChild(status);
+          }
+          if (uploadType === 'folder') {
+            const count = Array.from(files).filter(f => /\.(png|jpe?g|webp)$/i.test(f.name)).length;
+            status.textContent = `${count} ${TEXTS.detected}`;
+          } else {
+            status.textContent = `${files.length} ${TEXTS.selected}`;
+          }
+        }
+      }
+    });
+  </script>
+</main>
+</body>
+</html>
